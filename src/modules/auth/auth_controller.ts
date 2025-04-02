@@ -1,16 +1,25 @@
 import { Request, Response } from "express";
-import { registerNewUser, loginUser, googleAuth } from "../auth/auth_service.js";
+import { registerNewUser, loginUser, googleAuth, refreshAccessToken } from "../auth/auth_service.js";
 
-const registerCtrl = async ({body}: Request, res: Response) => {
-    try{
+const registerCtrl = async ({ body }: Request, res: Response) => {
+    try {
+        const { email, password, name, age } = body;
+
+        // Validación de campos requeridos
+        if (!email || !password || !name) {
+            return res.status(400).json({ message: "Todos los campos (email, password, name) son obligatorios." });
+        }
+
         const responseUser = await registerNewUser(body);
+        if (responseUser === "ALREADY_USER") {
+            return res.status(409).json({ message: "El usuario ya existe." });
+        }
+
         res.json(responseUser);
-    } catch (error: any){
+    } catch (error: any) {
         res.status(500).json({ message: error.message });
     }
 };
-
-
 
 const loginCtrl = async ({ body }: Request, res: Response) => {
     try {
@@ -82,5 +91,23 @@ const googleAuthCallback = async (req: Request, res: Response) => {
     }
 };
 
+const refreshTokenCtrl = async (req: Request, res: Response) => {
+    try {
+        const { refreshToken } = req.body;
+        const response = await refreshAccessToken(refreshToken);
 
-export { registerCtrl, loginCtrl,googleAuthCtrl, googleAuthCallback };
+        if (response === "INVALID_REFRESH_TOKEN") {
+            return res.status(403).json({ message: "Refresh token inválido" });
+        }
+
+        if (response === "USER_NOT_FOUND") {
+            return res.status(404).json({ message: "Usuario no encontrado" });
+        }
+
+        return res.json(response);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export { registerCtrl, loginCtrl, googleAuthCtrl, googleAuthCallback, refreshTokenCtrl };
